@@ -555,6 +555,7 @@ int main(int argc, char **argv)
     //nh.param 可以来获取launch文件中的"scan_line参数"
     //如果没有就用默认的16线     learn for pengllbit  lll
     nh.param<int>("scan_line", N_SCANS, 16);
+    //读取参数最近距离  设置为5米  没有参数就默认0。1米
     // 默认能够获取的最近的雷达点的距离为 0.1 m，低于这个范围内的点不使用
     nh.param<double>("minimum_range", MINIMUM_RANGE, 0.1);
 
