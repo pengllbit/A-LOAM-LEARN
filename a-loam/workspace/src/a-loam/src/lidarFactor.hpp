@@ -10,6 +10,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 /**
+ * odom 和 mapping的残差定义一样
  * 对边缘特征（线点或叫边缘点）匹配位姿进行估计的 Functor 
  * 构建一个点对另外两个点组成的线的距离残差
  */
@@ -68,7 +69,9 @@ struct LidarEdgeFactor
 	double s;
 };
 
+
 /**
+ * 在odom线程中的残差
  * 对平面特征进行位姿匹配估计的 Functor
  * 构建一个点对另外三个点组成的平面的距离残差
  */
@@ -126,7 +129,9 @@ struct LidarPlaneFactor
 	double s; // 畸变因子，0 表示起始点（对应上一帧结束时间点），1表示结束点（对应当前帧结束时间点）
 };
 
+
 /**
+ *  mapping线程的残差函数
  * 对平面特征进行位姿匹配估计的 Functor
  * 利用法向量构建残差
  */

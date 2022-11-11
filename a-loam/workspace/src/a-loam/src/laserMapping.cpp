@@ -212,7 +212,7 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr &laserOdometry)
 	odometryBuf.push(laserOdometry);
 	mBuf.unlock();
 
-	// high frequence publish
+	// high frequence publish 
 	Eigen::Quaterniond q_wodom_curr;
 	Eigen::Vector3d t_wodom_curr;
 	q_wodom_curr.x() = laserOdometry->pose.pose.orientation.x;
@@ -249,7 +249,7 @@ void process()
 		while (!cornerLastBuf.empty() && !surfLastBuf.empty() &&
 			!fullResBuf.empty() && !odometryBuf.empty())
 		{
-			mBuf.lock();
+			mBuf.lock(); 
 			// 以最旧的角点数据的时间为参考，舍弃掉过早的数据
 			while (!odometryBuf.empty() && odometryBuf.front()->header.stamp.toSec() < cornerLastBuf.front()->header.stamp.toSec())
 				odometryBuf.pop();
@@ -305,7 +305,7 @@ void process()
 			pcl::fromROSMsg(*fullResBuf.front(), *laserCloudFullRes);
 			fullResBuf.pop();
 
-			// 取出上述消息对应的前端计算的当前位姿，存到对应的 q 和 t 中
+			// 取出上述消息对应的前端计算的当前位姿，存到对应的 q 和 t 中  转成eigen数据
 			q_wodom_curr.x() = odometryBuf.front()->pose.pose.orientation.x;
 			q_wodom_curr.y() = odometryBuf.front()->pose.pose.orientation.y;
 			q_wodom_curr.z() = odometryBuf.front()->pose.pose.orientation.z;
@@ -542,6 +542,7 @@ void process()
 				centerCubeK--;
 				laserCloudCenDepth--;
 			}
+			//以上操作相当于维护了一个局部地图，保证当前帧不在这个局部地图的边缘，这样才能从地图中获取足够的约束
 
 			int laserCloudValidNum = 0;
 			int laserCloudSurroundNum = 0;
@@ -557,6 +558,7 @@ void process()
 							j >= 0 && j < laserCloudHeight &&
 							k >= 0 && k < laserCloudDepth)
 						{ 
+							//把各自的索引记录下来
 							laserCloudValidInd[laserCloudValidNum] = i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k;
 							laserCloudValidNum++;
 							laserCloudSurroundInd[laserCloudSurroundNum] = i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k;
@@ -578,13 +580,13 @@ void process()
 			int laserCloudSurfFromMapNum = laserCloudSurfFromMap->points.size();
 
 
-			// 对待处理的角点点云进行降采样处理
+			// 对当前帧角点点云进行降采样处理
 			pcl::PointCloud<PointType>::Ptr laserCloudCornerStack(new pcl::PointCloud<PointType>());
 			downSizeFilterCorner.setInputCloud(laserCloudCornerLast);
 			downSizeFilterCorner.filter(*laserCloudCornerStack);
 			int laserCloudCornerStackNum = laserCloudCornerStack->points.size();
 
-			// 对待处理的平面点云进行降采样处理
+			// 对当前帧平面点云进行降采样处理
 			pcl::PointCloud<PointType>::Ptr laserCloudSurfStack(new pcl::PointCloud<PointType>());
 			downSizeFilterSurf.setInputCloud(laserCloudSurfLast);
 			downSizeFilterSurf.filter(*laserCloudSurfStack);
@@ -602,7 +604,8 @@ void process()
 				// 用局部地图中的角点和平面生成 KD 树
 				kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMap);
 				kdtreeSurfFromMap->setInputCloud(laserCloudSurfFromMap);
-				printf("build tree time %f ms \n", t_tree.toc());
+				printf("build tree time %f ms \n", t_tree.toc());t_tree.toc());
+				//打印pcl构造kdtree的时间 还是比较耗时的 
 
 				for (int iterCount = 0; iterCount < 2; iterCount++)
 				{
@@ -625,7 +628,8 @@ void process()
 					for (int i = 0; i < laserCloudCornerStackNum; i++)
 					{
 						// 获取原始点并将其坐标转换至全局坐标系，在角点 KD 树搜索最近的 5 个点
-						pointOri = laserCloudCornerStack->points[i];
+						//后面判断这5个点要在一条线上
+						pointOri = laserCloudCornerStack->points[i]; 
 						//double sqrtDis = pointOri.x * pointOri.x + pointOri.y * pointOri.y + pointOri.z * pointOri.z;
 						pointAssociateToMap(&pointOri, &pointSel);
 						kdtreeCornerFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis); 
@@ -673,6 +677,7 @@ void process()
 								point_b = -0.1 * unit_direction + point_on_line;
 
 								// 将两个点以及当前选择的角点（注意是在点云中的，坐标是在载体坐标系下表示）传入 ceres 中构建残差
+								//这里的残差函数  和前面里程计用的是一样的
 								ceres::CostFunction *cost_function = LidarEdgeFactor::Create(curr_point, point_a, point_b, 1.0);
 								problem.AddResidualBlock(cost_function, loss_function, parameters, parameters + 4);
 								corner_num++;	
@@ -726,6 +731,7 @@ void process()
 							// 计算平面法向量，平面方程为 A'x + B'y + C'z = -1，代入 5 个点，利用最小二乘法解出参数即可得到法向量
 							Eigen::Vector3d norm = matA0.colPivHouseholderQr().solve(matB0);
 							double negative_OA_dot_norm = 1 / norm.norm();
+							//归一化
 							norm.normalize();
 
 							// Here n(pa, pb, pc) is unit norm of plane
@@ -736,6 +742,7 @@ void process()
 							for (int j = 0; j < 5; j++)
 							{
 								// if OX * n > 0.2, then plane is not fit well
+								//大于0.2 则表示拟合了一个不好的平面
 								if (fabs(norm(0) * laserCloudSurfFromMap->points[pointSearchInd[j]].x +
 										 norm(1) * laserCloudSurfFromMap->points[pointSearchInd[j]].y +
 										 norm(2) * laserCloudSurfFromMap->points[pointSearchInd[j]].z + negative_OA_dot_norm) > 0.2)
@@ -744,10 +751,12 @@ void process()
 									break;
 								}
 							}
+							//好的约束
 							Eigen::Vector3d curr_point(pointOri.x, pointOri.y, pointOri.z);
 							if (planeValid)
 							{
 								// 将选择的点和法向量传入 ceres 中构建残差块
+								//这里的 面特征 和 前端里程计不一样
 								ceres::CostFunction *cost_function = LidarPlaneNormFactor::Create(curr_point, norm, negative_OA_dot_norm);
 								problem.AddResidualBlock(cost_function, loss_function, parameters, parameters + 4);
 								surf_num++;
@@ -986,11 +995,13 @@ int main(int argc, char **argv)
 	nh.param<float>("mapping_plane_resolution", planeRes, 0.8);
 	printf("line resolution %f plane resolution %f \n", lineRes, planeRes);
 
-	// 根据给定的线和平面的分辨率对角点和平面的降采样滤波最小尺寸进行设置
+	// 根据给定的线和平面的分辨率对角点和平面的降采样滤波最小尺寸进行设置被  体素滤波
 	downSizeFilterCorner.setLeafSize(lineRes, lineRes,lineRes);
 	downSizeFilterSurf.setLeafSize(planeRes, planeRes, planeRes);
 
 	// 初始化 subcriber，订阅角点和平面的点云消息、前端里程计的估计结果以及全部点云
+	//点云的消息 回调函数就是 放到队列中
+	//里程计消息 放到队列 并发送出来
 	ros::Subscriber subLaserCloudCornerLast = nh.subscribe<sensor_msgs::PointCloud2>("/laser_cloud_corner_last", 100, laserCloudCornerLastHandler);
 	ros::Subscriber subLaserCloudSurfLast = nh.subscribe<sensor_msgs::PointCloud2>("/laser_cloud_surf_last", 100, laserCloudSurfLastHandler);
 	ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry>("/laser_odom_to_init", 100, laserOdometryHandler);
