@@ -82,7 +82,7 @@ const int laserCloudHeight = 21;
 const int laserCloudDepth = 11;
 
 
-// 设置最大点云数量
+// 设置最大点云数量 
 const int laserCloudNum = laserCloudWidth * laserCloudHeight * laserCloudDepth; //4851
 
 
@@ -981,6 +981,7 @@ void process()
 	}
 }
 
+//pengllbit
 int main(int argc, char **argv)
 {
 
