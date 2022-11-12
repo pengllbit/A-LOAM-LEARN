@@ -242,6 +242,8 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr &laserOdometry)
 	pubOdomAftMappedHighFrec.publish(odomAftMapped);
 }
 
+
+//主处理线程
 void process()
 {
 	while(1)
@@ -890,6 +892,7 @@ void process()
 			if (frameCount % 5 == 0)
 			{
 				// 每 5 帧发布（更新）一次局部地图
+				//用于rviz的显示的
 				laserCloudSurround->clear();
 				for (int i = 0; i < laserCloudSurroundNum; i++)
 				{
@@ -899,6 +902,7 @@ void process()
 				}
 
 				sensor_msgs::PointCloud2 laserCloudSurround3;
+				//转成ros的消息格式   时间戳和坐标系
 				pcl::toROSMsg(*laserCloudSurround, laserCloudSurround3);
 				laserCloudSurround3.header.stamp = ros::Time().fromSec(timeLaserOdometry);
 				laserCloudSurround3.header.frame_id = "camera_init";
@@ -909,6 +913,7 @@ void process()
 			{
 				// 每 20 帧发布（更新）一次全局地图（将所有点云相加并发布）
 				pcl::PointCloud<PointType> laserCloudMap;
+				//21*21*11个栅格
 				for (int i = 0; i < 4851; i++)
 				{
 					laserCloudMap += *laserCloudCornerArray[i];
@@ -961,6 +966,7 @@ void process()
 			pubLaserAfterMappedPath.publish(laserAfterMappedPath);
 
 			// 设置初始位姿（起始点）到当前位姿的转换关系，并发布
+			//当前帧到 map下的tf
 			static tf::TransformBroadcaster br;
 			tf::Transform transform;
 			tf::Quaternion q;
@@ -976,6 +982,8 @@ void process()
 
 			frameCount++;
 		}
+
+		//休息2ms cpu资源释放
 		std::chrono::milliseconds dura(2);
         std::this_thread::sleep_for(dura);
 	}
