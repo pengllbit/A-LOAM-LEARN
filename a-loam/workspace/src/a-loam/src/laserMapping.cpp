@@ -997,7 +997,7 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "laserMapping");
 	ros::NodeHandle nh;
 
-	// 获取参数：线和平面的分辨率
+	// 获取参数：线和平面的分辨率 pengllbit
 	float lineRes = 0;
 	float planeRes = 0;
 	nh.param<float>("mapping_line_resolution", lineRes, 0.4);
